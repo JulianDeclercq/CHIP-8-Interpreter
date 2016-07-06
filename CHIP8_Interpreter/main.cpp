@@ -8,7 +8,7 @@
 #include <vector>
 #include <string>
 
-#include <bitset>
+#include "Interpreter.h"
 //Forward declaration
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 GLuint LoadShaderFromFile(const std::string & filePath, GLenum shaderType);
@@ -16,19 +16,14 @@ GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_pat
 unsigned int RgbaToU32(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 
 // Window dimensions
-const GLuint WIDTH = 800, HEIGHT = 600;
+const GLuint WIDTH = 1024, HEIGHT = 512;
+Interpreter g_Interpreter = Interpreter();
 
-inline int ScaleTo(int value, int from, int to)
+GLFWwindow* OpenGLInit(const std::string& windowName)
 {
-	float fraction = static_cast<float>(to) / static_cast<float>(from);
-	return static_cast<int>(fraction * value);
-}
-
-int main()
-{
-	std::cout << "Starting GLFW context, OpenGL 3.3" << std::endl;
 	// Init GLFW
 	glfwInit();
+
 	// Set all the required options for GLFW
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -36,13 +31,13 @@ int main()
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
 	// Create a GLFWwindow object that we can use for GLFW's functions
-	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "LearnOpenGL", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, windowName.c_str(), NULL, NULL);
 	glfwMakeContextCurrent(window);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
-		return -1;
+		return nullptr;
 	}
 
 	// Set the required callback functions
@@ -51,7 +46,7 @@ int main()
 	if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
 	{
 		std::cout << "Failed to initialize OpenGL context" << std::endl;
-		return -1;
+		return nullptr;
 	}
 
 	// Define the viewport dimensions
@@ -124,33 +119,35 @@ int main()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
+	return window;
+}
+
+void Draw(GLFWwindow* window)
+{
+	//Get the texture from the interpreter
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 64, 32, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, reinterpret_cast<GLvoid*>(g_Interpreter.GetScreen()));
+
+	// Clear the screen to white
+	glClearColor(1, 1, 1, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	// Draw the rectangle for the texture
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+	// Swap the screen buffers
+	glfwSwapBuffers(window);
+}
+
+int main()
+{
+	GLFWwindow* window = OpenGLInit("CHIP8_Interpreter by Julian Declercq");
 	// Game loop
 	while (!glfwWindowShouldClose(window))
 	{
+		Draw(window);
+
 		// Check if any events have been activated (key pressed, mouse moved etc.) and call corresponding response functions
 		glfwPollEvents();
-
-		unsigned int tex[64 * 32]; /*unsigned int = 32 bit integer, for the texture:
-								   The first 8-bits of the 32-bit integer is red, the second is green, the third is blue, and the fourth is alpha.
-								   Use RgbaToU32() helper method to easily convert*/
-		for (int i = 0; i < 2048; ++i)
-		{
-			int grayScale = ScaleTo(i, 2048, 255);
-			int grayScaleInverse = 255 - grayScale;
-			tex[i] = RgbaToU32(grayScale, grayScaleInverse, grayScale, 255);
-		}
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 64, 32, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, reinterpret_cast<GLvoid*>(tex));
-
-		// Render
-		// Clear the screen to white
-		glClearColor(1, 1, 1, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		// Draw a rectangle from the 2 triangles using 6 indices
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		// Swap the screen buffers
-		glfwSwapBuffers(window);
 	}
 
 	// Terminates GLFW, clearing any resources allocated by GLFW.
@@ -158,12 +155,6 @@ int main()
 
 	std::cin.get();
 	return 0;
-}
-
-unsigned int RgbaToU32(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
-{
-	unsigned int u32 = r << 24 | g << 16 | b << 8 | a;
-	return u32;
 }
 
 // Is called whenever a key is pressed/released via GLFW
