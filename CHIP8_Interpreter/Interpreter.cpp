@@ -1,6 +1,7 @@
 #include "Interpreter.h"
 
 #include <iostream>
+#include <fstream>
 
 Interpreter::Interpreter()
 {
@@ -31,6 +32,44 @@ void Interpreter::TempScreen()
 		int grayScaleInverse = 255 - grayScale;
 		m_Screen[i] = RgbaToU32(grayScale, grayScaleInverse, grayScale, 255);
 	}
+}
+
+void Interpreter::LoadRom(const std::string& path)
+{
+	std::ifstream Rom;
+	Rom.open(path, std::ios_base::binary | std::ios_base::ate);
+	if (Rom.fail())
+	{
+		std::cout << "Failed to load Rom with path " << path << std::endl;
+		return;
+	}
+	const int fileSize = static_cast<int>(Rom.tellg());
+	Rom.seekg(0); //go back to the beginning of the file
+
+	Rom.read(reinterpret_cast<char*>(m_Memory + 512), fileSize);
+}
+
+void Interpreter::Initialize()
+{
+	for (int i = 0; i < REGISTER_COUNT; ++i)
+		m_V[i] = 0;
+
+	for (int i = 0; i < PIXEL_COUNT; ++i)
+		m_Screen[i] = 0;
+
+	for (int i = 0; i < STACK_COUNT; ++i)
+		m_Stack[i] = 0;
+
+	for (int i = 0; i < KEYPAD_COUNT; ++i)
+		m_Keypad[i] = 0;
+
+	/*Loading the fontset to memory.
+	Wikipedia: In modern CHIP-8 implementations,
+	where the interpreter is running natively outside the 4K memory space,
+	there is no need for any of the lower 512 bytes memory space to be used,
+	but it is common to store font data in those lower 512 bytes (0x000-0x200)*/
+	for (int i = 0; i < FONTSET_SIZE; ++i)
+		m_Memory[i] = m_Fontset[i];
 }
 
 unsigned int* Interpreter::GetScreen()
