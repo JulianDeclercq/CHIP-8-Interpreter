@@ -1,6 +1,9 @@
-#version 400
-out vec4 frag_colour;
-void main () 
+#version 330 core
+in vec2 UV;
+out vec4 color;
+uniform sampler2D texSampler;
+
+void main() 
 {
-  frag_colour = vec4 (0.2f, 0.1f, 0.5f, 1.0);
-};
+	color = texture(texSampler, UV);
+}
