@@ -74,5 +74,6 @@ private:
 	};
 
 private:
-	unsigned short FetchOpCode();
+	void DecreaseTimers();
+	void ClearScreen();
 };

@@ -7,6 +7,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <time.h> //srand
 
 #include "Interpreter.h"
 //Forward declaration
@@ -140,6 +141,9 @@ void Draw(GLFWwindow* window)
 
 int main()
 {
+	srand(static_cast<unsigned int>(time(0))); //seed rand
+	rand(); rand(); rand();
+
 	GLFWwindow* window = OpenGLInit("CHIP8_Interpreter by Julian Declercq");
 	// Game loop
 	while (!glfwWindowShouldClose(window))

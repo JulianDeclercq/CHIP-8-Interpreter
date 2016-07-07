@@ -28,10 +28,16 @@ void Interpreter::TempScreen()
 {
 	for (int i = 0; i < 2048; ++i)
 	{
-		int grayScale = ScaleTo(i, 2048, 255);
-		int grayScaleInverse = 255 - grayScale;
+		unsigned char grayScale = static_cast<unsigned char>(ScaleTo(i, 2048, 255));
+		unsigned char grayScaleInverse = 255 - grayScale;
 		m_Screen[i] = RgbaToU32(grayScale, grayScaleInverse, grayScale, 255);
 	}
+}
+
+void Interpreter::ClearScreen()
+{
+	//TEMPORARY
+	TempScreen();
 }
 
 void Interpreter::Initialize()
@@ -55,9 +61,6 @@ void Interpreter::Initialize()
 	but it is common to store font data in those lower 512 bytes (0x000-0x200)*/
 	for (int i = 0; i < FONTSET_SIZE; ++i)
 		m_Memory[i] = m_Fontset[i];
-
-	//Fill opcodes
-	InitialiseOpcodes();
 }
 
 void Interpreter::LoadRom(const std::string& path)
@@ -80,23 +83,193 @@ unsigned int* Interpreter::GetScreen()
 	return m_Screen;
 }
 
-unsigned short Interpreter::FetchOpCode()
+void Interpreter::DecreaseTimers() //timers count down at 60hz so might want to
+//implement slow down on emulation cycle (60opcodes per sec)
 {
+	if (m_DelayTimer > 0)
+		--m_DelayTimer;
+
+	if (m_SoundTimer > 0)
+	{
+		--m_SoundTimer;
+
+		if (m_SoundTimer == 1)
+			std::cout << "Beep\n";
+	}
+}
+
+void Interpreter::Cycle()
+{
+	//Fetch opcode
 	//Fetch memory from the location specified by the program counter
 	unsigned char o = m_Memory[m_ProgramCounter];
 	unsigned char p = m_Memory[m_ProgramCounter + 1];
 
 	//Opcode is 2 bytes, memory is 1 byte so add them together
 	unsigned short opCode = o << 8 | p;
-	return opCode;
-}
 
-void Interpreter::Cycle()
-{
-	//Fetch opcode
-	FetchOpCode();
 	//Decode opcode
+	switch (opCode & 0xF000) //read the first four bits of the current opcode (0xF000 in binary is 1111000000000000)
+	{
+	case 0x0000:
+	{
+		switch (opCode & 0x000F) //multiple opCodes that start with 0 exist
+		{
+		case 0x0000: //00E0 	Clears the screen.
+			ClearScreen();
+			break;
+		case 0x000E: //00EE 	Returns from a subroutine.
+			break;
+		default: std::cout << "Invalid opcode with 0x0000, possibly 0NNN was meant\n";
+			break;
+		}
+	}
+	break;
+
+	case 0x1000: //1NNN 	Jumps to address NNN.
+	{
+	}
+	break;
+	case 0x2000: //2NNN 	Calls subroutine at NNN.
+	{
+		m_Stack[m_StackPointer] = m_ProgramCounter; //store current address of the pc
+		++m_StackPointer;
+		m_ProgramCounter = opCode & 0x0FFF;
+		//don't increment pc by 2 because we are calling a subroutine at a specific address
+	}
+	break;
+	case 0x3000: //3XNN 	Skips the next instruction if VX equals NN.
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char NN = opCode & 0x00FF;
+		if (m_V[X] == NN) //>> 8 because only first 4 bits were read with main switch
+			m_ProgramCounter += 2;
+	}
+	break;
+	case 0x4000: //4XNN 	Skips the next instruction if VX doesn't equal NN.
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char NN = opCode & 0x00FF;
+		if (m_V[X] != NN)
+			m_ProgramCounter += 2;
+	}
+	break;
+	case 0x5000: //5XY0 	Skips the next instruction if VX equals VY.
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char Y = (opCode & 0x00F0) >> 8;
+		if (m_V[X] == m_V[Y])
+			m_ProgramCounter += 2;
+	}
+	break;
+	case 0x6000: //6XNN 	Sets VX to NN.
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char NN = (opCode & 0x00FF);
+		m_V[X] = NN;
+	}
+	break;
+
+	case 0x7000: //7XNN 	Adds NN to VX.
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char NN = opCode & 0x00FF;
+		m_V[X] += NN;
+	}
+	break;
+
+	case 0x8000:
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char Y = (opCode & 0x00F0) >> 4;
+		switch (opCode & 0x000F)
+		{
+		case 0x0000: //8XY0 	Sets VX to the value of VY.
+			m_V[X] = m_V[Y];
+			break;
+
+		case 0x0001: //8XY1 	Sets VX to VX or VY.
+			m_V[X] = m_V[X] | m_V[Y];
+			break;
+
+		case 0x0002: //8XY2 	Sets VX to VX and VY.
+			m_V[X] = m_V[X] & m_V[Y];
+			break;
+
+		case 0x0003: //8XY3 	Sets VX to VX xor VY.
+			m_V[X] = m_V[X] ^ m_V[Y];
+			break;
+
+		case 0x0004: /*8XY4		Adds VY to VX.
+					 VF is set to 1 when there's a carry, and to 0 when there isn't.
+					 carry means the value is higher than 255 and thus 255 will be added surplus*/
+			m_V[0xF] = (m_V[Y] > (0xFF - m_V[X])) ? 1 : 0;
+			m_V[X] += m_V[Y];
+			break;
+
+		case 0x0005: //8XY5 	VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
+			m_V[0xF] = (m_V[Y] > m_V[X]) ? 0 : 1;
+			m_V[X] -= m_V[Y];
+			break;
+
+		case 0x0006: //8XY6 	Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift.[2]
+			m_V[0xF] = m_V[X] & 1; //least significant bit
+			m_V[X] = m_V[X] >> 1;
+			break;
+
+		case 0x0007: //8XY7 	Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
+			m_V[0xF] = (m_V[Y] > m_V[X]) ? 0 : 1;
+			m_V[X] = m_V[Y] - m_V[X];
+			break;
+
+		case 0x000E: //8XYE 	Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.
+			m_V[0xF] = (m_V[X] >> 7) & 1; // most significant bit
+			m_V[X] = m_V[X] << 1;
+			break;
+
+		default: std::cout << "Invalid opcode in case 0x8000 \n";
+			break;
+		}
+	}
+	break;
+
+	case 0x9000: //9XY0 	Skips the next instruction if VX doesn't equal VY.
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char Y = (opCode & 0x00F0) >> 4;
+		if (m_V[X] != m_V[Y])
+			m_ProgramCounter += 2;
+	}
+	break;
+
+	case 0xA000: //ANNN 	Sets I to the address NNN.
+	{
+		m_IndexRegister = m_Opcode & 0x0FFF;
+		m_ProgramCounter += 2;
+	}
+	break;
+
+	case 0xB000: //BNNN 	Jumps to the address NNN plus V0.
+	{
+		m_ProgramCounter = (m_Opcode & 0x0FFF) + m_V[0];
+	}
+	break;
+
+	case 0xC000: //CXNN 	Sets VX to the result of a bitwise and operation on a random number and NN.
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char NN = opCode & 0x00FF;
+		unsigned char randomNr = static_cast<unsigned char>(rand());
+		m_V[X] = randomNr & NN;
+	}
+	break;
+
+	default: std::cout << "Invalid main opcode reached\n";
+		break;
+	}
+
 	//Execute opcode
 
 	//Update timers
+	DecreaseTimers();
 }
