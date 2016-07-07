@@ -34,21 +34,6 @@ void Interpreter::TempScreen()
 	}
 }
 
-void Interpreter::LoadRom(const std::string& path)
-{
-	std::ifstream Rom;
-	Rom.open(path, std::ios_base::binary | std::ios_base::ate);
-	if (Rom.fail())
-	{
-		std::cout << "Failed to load Rom with path " << path << std::endl;
-		return;
-	}
-	const int fileSize = static_cast<int>(Rom.tellg());
-	Rom.seekg(0); //go back to the beginning of the file
-
-	Rom.read(reinterpret_cast<char*>(m_Memory + 512), fileSize);
-}
-
 void Interpreter::Initialize()
 {
 	for (int i = 0; i < REGISTER_COUNT; ++i)
@@ -70,9 +55,48 @@ void Interpreter::Initialize()
 	but it is common to store font data in those lower 512 bytes (0x000-0x200)*/
 	for (int i = 0; i < FONTSET_SIZE; ++i)
 		m_Memory[i] = m_Fontset[i];
+
+	//Fill opcodes
+	InitialiseOpcodes();
+}
+
+void Interpreter::LoadRom(const std::string& path)
+{
+	std::ifstream Rom;
+	Rom.open(path, std::ios_base::binary | std::ios_base::ate);
+	if (Rom.fail())
+	{
+		std::cout << "Failed to load Rom with path " << path << std::endl;
+		return;
+	}
+	const int fileSize = static_cast<int>(Rom.tellg());
+	Rom.seekg(0); //go back to the beginning of the file
+
+	Rom.read(reinterpret_cast<char*>(m_Memory + 512), fileSize);
 }
 
 unsigned int* Interpreter::GetScreen()
 {
 	return m_Screen;
+}
+
+unsigned short Interpreter::FetchOpCode()
+{
+	//Fetch memory from the location specified by the program counter
+	unsigned char o = m_Memory[m_ProgramCounter];
+	unsigned char p = m_Memory[m_ProgramCounter + 1];
+
+	//Opcode is 2 bytes, memory is 1 byte so add them together
+	unsigned short opCode = o << 8 | p;
+	return opCode;
+}
+
+void Interpreter::Cycle()
+{
+	//Fetch opcode
+	FetchOpCode();
+	//Decode opcode
+	//Execute opcode
+
+	//Update timers
 }

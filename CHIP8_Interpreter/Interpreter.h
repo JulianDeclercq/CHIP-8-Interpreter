@@ -14,6 +14,8 @@ public:
 	void Initialize();
 	unsigned int* GetScreen();
 
+	void Cycle();
+
 private:
 
 	/* Systems memory map (total system memory is 4096 bytes)
@@ -70,4 +72,7 @@ private:
 		0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
 		0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 	};
+
+private:
+	unsigned short FetchOpCode();
 };
