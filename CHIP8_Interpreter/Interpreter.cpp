@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 
+#define DEBUG
+
 Interpreter::Interpreter()
 {
 	TempScreen();
@@ -102,11 +104,16 @@ void Interpreter::Cycle()
 {
 	//Fetch opcode
 	//Fetch memory from the location specified by the program counter
-	unsigned char o = m_Memory[m_ProgramCounter];
-	unsigned char p = m_Memory[m_ProgramCounter + 1];
+	unsigned char o = m_Memory[m_ProgramCounter++]; //increment counter here (1)
+	unsigned char p = m_Memory[m_ProgramCounter++]; //increment counter here (2), 2 times incremented => next instruction
 
 	//Opcode is 2 bytes, memory is 1 byte so add them together
-	unsigned short opCode = o << 8 | p;
+	unsigned short opCode;
+	opCode = o << 8 | p;
+
+#ifdef DEBUG
+	std::cout << std::hex << "Opcode: " << opCode << std::endl;
+#endif
 
 	//Decode opcode
 	switch (opCode & 0xF000) //read the first four bits of the current opcode (0xF000 in binary is 1111000000000000)
@@ -123,6 +130,33 @@ void Interpreter::Cycle()
 		default: std::cout << "Invalid opcode with 0x0000, possibly 0NNN was meant\n";
 			break;
 		}
+	}
+	break;
+
+	case 0xA000: //ANNN 	Sets I to the address NNN.
+	{
+		m_IndexRegister = opCode & 0x0FFF;
+	}
+	break;
+
+	case 0xB000: //BNNN 	Jumps to the address NNN plus V0.
+	{
+		m_ProgramCounter = (opCode & 0x0FFF) + m_V[0];
+	}
+	break;
+
+	case 0xC000: //CXNN 	Sets VX to the result of a bitwise and operation on a random number and NN.
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char NN = opCode & 0x00FF;
+		unsigned char randomNr = static_cast<unsigned char>(rand());
+		m_V[X] = randomNr & NN;
+	}
+	break;
+
+	case 0xD000:
+	{
+		std::cout << "DRAW COMMAND" << std::endl;
 	}
 	break;
 
@@ -239,28 +273,6 @@ void Interpreter::Cycle()
 		unsigned char Y = (opCode & 0x00F0) >> 4;
 		if (m_V[X] != m_V[Y])
 			m_ProgramCounter += 2;
-	}
-	break;
-
-	case 0xA000: //ANNN 	Sets I to the address NNN.
-	{
-		m_IndexRegister = m_Opcode & 0x0FFF;
-		m_ProgramCounter += 2;
-	}
-	break;
-
-	case 0xB000: //BNNN 	Jumps to the address NNN plus V0.
-	{
-		m_ProgramCounter = (m_Opcode & 0x0FFF) + m_V[0];
-	}
-	break;
-
-	case 0xC000: //CXNN 	Sets VX to the result of a bitwise and operation on a random number and NN.
-	{
-		unsigned char X = (opCode & 0x0F00) >> 8;
-		unsigned char NN = opCode & 0x00FF;
-		unsigned char randomNr = static_cast<unsigned char>(rand());
-		m_V[X] = randomNr & NN;
 	}
 	break;
 

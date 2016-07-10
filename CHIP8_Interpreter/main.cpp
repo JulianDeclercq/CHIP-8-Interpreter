@@ -18,7 +18,6 @@ unsigned int RgbaToU32(unsigned char r, unsigned char g, unsigned char b, unsign
 
 // Window dimensions
 const GLuint WIDTH = 1024, HEIGHT = 512;
-Interpreter g_Interpreter = Interpreter();
 
 GLFWwindow* OpenGLInit(const std::string& windowName)
 {
@@ -123,10 +122,10 @@ GLFWwindow* OpenGLInit(const std::string& windowName)
 	return window;
 }
 
-void Draw(GLFWwindow* window)
+void Draw(GLFWwindow* window, Interpreter& interpreter)
 {
 	//Get the texture from the interpreter
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 64, 32, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, reinterpret_cast<GLvoid*>(g_Interpreter.GetScreen()));
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 64, 32, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, reinterpret_cast<GLvoid*>(interpreter.GetScreen()));
 
 	// Clear the screen to white
 	glClearColor(1, 1, 1, 1.0f);
@@ -145,13 +144,21 @@ int main()
 	rand(); rand(); rand();
 
 	GLFWwindow* window = OpenGLInit("CHIP8_Interpreter by Julian Declercq");
+
+	Interpreter interpreter = Interpreter();
+	interpreter.LoadRom("./Resources/PONG");
+
 	// Game loop
 	while (!glfwWindowShouldClose(window))
 	{
-		Draw(window);
+		for (int i = 0; i < 5; i++)
+			interpreter.Cycle();
 
+		Draw(window, interpreter);
 		// Check if any events have been activated (key pressed, mouse moved etc.) and call corresponding response functions
 		glfwPollEvents();
+
+		//interpreter.SetKeys();
 	}
 
 	// Terminates GLFW, clearing any resources allocated by GLFW.
@@ -164,6 +171,9 @@ int main()
 // Is called whenever a key is pressed/released via GLFW
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
+	UNREFERENCED_PARAMETER(mode);
+	UNREFERENCED_PARAMETER(scancode);
+
 	std::cout << key << std::endl;
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GL_TRUE);

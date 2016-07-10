@@ -24,9 +24,6 @@ private:
 	0x200-0xFFF - Program ROM and work RAM*/
 	unsigned char m_Memory[4096];
 
-	//Current opcode
-	unsigned short m_Opcode = 0;
-
 	static const int REGISTER_COUNT = 16;
 	unsigned char m_V[REGISTER_COUNT]; //16 8-bit registers named from V0 to VF
 
