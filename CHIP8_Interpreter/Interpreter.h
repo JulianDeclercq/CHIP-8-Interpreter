@@ -14,7 +14,7 @@ public:
 	void Initialize();
 	unsigned int* GetScreen();
 
-	void Cycle();
+	bool Cycle();
 
 private:
 
@@ -32,7 +32,9 @@ private:
 	unsigned short m_ProgramCounter = 0x200; //program counter, starts at 0x200
 
 	//screen has 2048 pixels (64 x 32)
-	static const int PIXEL_COUNT = 64 * 32;
+	static const int SCREEN_WIDTH = 64;
+	static const int SCREEN_HEIGHT = 32;
+	static const int PIXEL_COUNT = SCREEN_WIDTH * SCREEN_HEIGHT;
 	unsigned int m_Screen[PIXEL_COUNT];
 
 	//2 timers
@@ -69,6 +71,10 @@ private:
 		0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
 		0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 	};
+
+	//Current values for on and off (instead of boring black and white ;) )
+	unsigned int m_PixelOff = 0;
+	unsigned int m_PixelOn = 0;
 
 private:
 	void DecreaseTimers();

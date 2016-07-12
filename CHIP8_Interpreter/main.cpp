@@ -149,10 +149,18 @@ int main()
 	interpreter.LoadRom("./Resources/PONG");
 
 	// Game loop
+	bool interpreterRunning = true;
 	while (!glfwWindowShouldClose(window))
 	{
-		for (int i = 0; i < 5; i++)
-			interpreter.Cycle();
+		if (interpreterRunning)
+		{
+			for (int i = 0; i < 5; i++)
+			{
+				interpreterRunning = interpreter.Cycle();
+				if (!interpreterRunning)
+					break; //out of for loop
+			}
+		}
 
 		Draw(window, interpreter);
 		// Check if any events have been activated (key pressed, mouse moved etc.) and call corresponding response functions

@@ -28,12 +28,17 @@ unsigned int RgbaToU32(unsigned char r, unsigned char g, unsigned char b, unsign
 
 void Interpreter::TempScreen()
 {
+	//unsigned char grayScale = static_cast<unsigned char>(ScaleTo(i, 2048, 255));
+	//unsigned char grayScaleInverse = 255 - grayScale;
+	//m_PixelOn = RgbaToU32(grayScale, grayScaleInverse, grayScale, 255);
+
+	m_PixelOn = RgbaToU32(0, 120, 0, 0);
+	m_PixelOff = RgbaToU32(120, 0, 0, 0);
+
 	for (int i = 0; i < 2048; ++i)
-	{
-		unsigned char grayScale = static_cast<unsigned char>(ScaleTo(i, 2048, 255));
-		unsigned char grayScaleInverse = 255 - grayScale;
-		m_Screen[i] = RgbaToU32(grayScale, grayScaleInverse, grayScale, 255);
-	}
+		m_Screen[i] = m_PixelOff;
+
+	//m_Screen[770] = m_PixelOn;
 }
 
 void Interpreter::ClearScreen()
@@ -44,11 +49,10 @@ void Interpreter::ClearScreen()
 
 void Interpreter::Initialize()
 {
+	ClearScreen();
+
 	for (int i = 0; i < REGISTER_COUNT; ++i)
 		m_V[i] = 0;
-
-	for (int i = 0; i < PIXEL_COUNT; ++i)
-		m_Screen[i] = 0;
 
 	for (int i = 0; i < STACK_COUNT; ++i)
 		m_Stack[i] = 0;
@@ -100,7 +104,7 @@ void Interpreter::DecreaseTimers() //timers count down at 60hz so might want to
 	}
 }
 
-void Interpreter::Cycle()
+bool Interpreter::Cycle()
 {
 	//Fetch opcode
 	//Fetch memory from the location specified by the program counter
@@ -154,9 +158,58 @@ void Interpreter::Cycle()
 	}
 	break;
 
-	case 0xD000:
+	case 0xD000: //DXYN
+		/*Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N pixels.
+		Each row of 8 pixels is read as bit-coded starting from memory location I;
+		I value doesn’t change after the execution of this instruction.
+		As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn,
+		and to 0 if that doesn’t happen.*/
 	{
-		std::cout << "DRAW COMMAND" << std::endl;
+		unsigned char X = (opCode & 0x0F00) >> 8;
+		unsigned char Y = (opCode & 0x00F0) >> 4;
+		unsigned char N = opCode & 0x000F;
+
+		unsigned char xCoord = m_V[X];
+		unsigned char yCoord = m_V[Y];
+
+		for (int i = 0; i < N; ++i)
+		{
+			unsigned char newPxRow = m_Memory[m_IndexRegister + i]; //bit coded
+
+			//unsigned char test1 = (newPxRow >> 7) & 1;
+			//unsigned char test2 = (newPxRow >> 6) & 1;
+			//unsigned char test3 = (newPxRow >> 5) & 1;
+			//unsigned char test4 = (newPxRow >> 4) & 1;
+			//unsigned char test5 = (newPxRow >> 3) & 1;
+			//unsigned char test6 = (newPxRow >> 2) & 1;
+			//unsigned char test7 = (newPxRow >> 1) & 1;
+
+			m_V[0xF] = 0; //reset
+			for (int px = 0; px < 8; ++px)
+			{
+				const int curPxIdx = (((yCoord + i) * SCREEN_WIDTH) + xCoord) + px; //DOES NOT WRAP YET
+				const unsigned char oldPx = (m_Screen[curPxIdx] == m_PixelOn) ? 1 : 0;
+
+				unsigned char newPx = (newPxRow >> (8 - (px + 1))) & 1; //masked the current pixel (value stored in 1 bit)
+
+				unsigned char xorPx = (newPx ^ oldPx);
+
+				if (xorPx == 0)
+				{
+					/*If a pixel on the screen is set to 1, and the sprite to be drawn contains a 1 for this same pixel,
+					the screen pixel is turned off and VF is set to 1*/
+					if (newPx != 0 || oldPx != 0) //xor of both 0 will result in 0, we don't want to change the VF then
+						m_V[0xF] = 1;
+
+					m_Screen[curPxIdx] = m_PixelOff;
+				}
+				else //if it equals one
+				{
+					m_Screen[curPxIdx] = m_PixelOn;
+				}
+			}
+		}
+		//return false;
 	}
 	break;
 
@@ -276,12 +329,16 @@ void Interpreter::Cycle()
 	}
 	break;
 
-	default: std::cout << "Invalid main opcode reached\n";
-		break;
+	default:
+	{
+		std::cout << "Invalid main opcode reached\n";
+		return false;
 	}
-
-	//Execute opcode
+	break;
+	}
 
 	//Update timers
 	DecreaseTimers();
+
+	return true;
 }
