@@ -129,8 +129,11 @@ bool Interpreter::Cycle()
 		case 0x0000: //00E0 	Clears the screen.
 			ClearScreen();
 			break;
-		case 0x000E: //00EE 	Returns from a subroutine.
-			break;
+		case 0x000E: //00EE 	Returns from a subroutine. NOT SURE IF CORRECT
+		{
+			m_ProgramCounter = m_Stack[--m_StackPointer];
+		}
+		break;
 		default: std::cout << "Invalid opcode with 0x0000, possibly 0NNN was meant\n";
 			break;
 		}
@@ -159,12 +162,13 @@ bool Interpreter::Cycle()
 	break;
 
 	case 0xD000: //DXYN
+	{
 		/*Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N pixels.
 		Each row of 8 pixels is read as bit-coded starting from memory location I;
 		I value doesn’t change after the execution of this instruction.
 		As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn,
 		and to 0 if that doesn’t happen.*/
-	{
+
 		unsigned char X = (opCode & 0x0F00) >> 8;
 		unsigned char Y = (opCode & 0x00F0) >> 4;
 		unsigned char N = opCode & 0x000F;
@@ -187,11 +191,17 @@ bool Interpreter::Cycle()
 			m_V[0xF] = 0; //reset
 			for (int px = 0; px < 8; ++px)
 			{
-				const int curPxIdx = (((yCoord + i) * SCREEN_WIDTH) + xCoord) + px; //DOES NOT WRAP YET
+				//const int curPxIdx = (((yCoord + i) * SCREEN_WIDTH) + xCoord) + px; //DOES NOT WRAP
+				const int endOfLine = ((yCoord + i + 1) * SCREEN_WIDTH) - 1;
+				int curPxIdx = (((yCoord + i) * SCREEN_WIDTH) + xCoord) + px;
+				if (curPxIdx > endOfLine) //wrap around
+				{
+					int overflow = curPxIdx - endOfLine;
+					curPxIdx = ((yCoord + i) * SCREEN_WIDTH) + overflow;
+				}
+
 				const unsigned char oldPx = (m_Screen[curPxIdx] == m_PixelOn) ? 1 : 0;
-
 				unsigned char newPx = (newPxRow >> (8 - (px + 1))) & 1; //masked the current pixel (value stored in 1 bit)
-
 				unsigned char xorPx = (newPx ^ oldPx);
 
 				if (xorPx == 0)
@@ -209,7 +219,73 @@ bool Interpreter::Cycle()
 				}
 			}
 		}
-		//return false;
+		//return false; DEBUG
+	}
+	break;
+
+	case 0xE000:
+	{
+		switch (opCode & 0x000F)
+		{
+		case 0x000E: //EX9E 	Skips the next instruction if the key stored in VX is pressed.
+			std::cout << "Not yet implemented opcode with key pressing\n";
+			break;
+
+		case 0x0001: //EXA1 	Skips the next instruction if the key stored in VX isn't pressed.
+			std::cout << "Not yet implemented opcode with key pressing\n";
+			break;
+		}
+	}
+	break;
+
+	case 0xF000:
+	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
+
+		switch (opCode & 0x00F0)
+		{
+		case 0x0000:
+		{
+			//I prefer using if and else if over switch here for readability
+			if (opCode & 0x000F == 0x0007) //FX07 	Sets VX to the value of the delay timer.
+			{
+				m_V[X] = m_DelayTimer;
+			}
+			else if (opCode & 0x000F == 0x000A) //FX0A 	A key press is awaited, and then stored in VX.
+			{
+				std::cout << "Not yet implemented opcode with key pressing\n";
+			}
+			else
+			{
+				std::cout << "Invalid opcode 0xFX0. \n";
+			}
+		}
+		break;
+
+		case 0x0010:
+		{
+			if (opCode & 0x000F == 0x0005) //FX15 	Sets the delay timer to VX.
+			{
+				m_DelayTimer = m_V[X];
+			}
+			else if (opCode & 0x000F == 0x0008) //FX18 	Sets the sound timer to VX.
+			{
+				m_SoundTimer = m_V[X];
+			}
+			else if (opCode & 0x000F == 0x000E) //FX1E  Adds VX to I.
+			{
+				m_IndexRegister += m_V[X];
+
+				/*VF is set to 1 when range overflow(I + VX > 0xFFF), and 0 when there isn't.
+				This is undocumented feature of the CHIP-8 and used by Spacefight 2091! game.*/
+				m_V[0xF] = (m_V[X] + m_IndexRegister > 0xFFF) ? 1 : 0;
+			}
+			else
+			{
+			}
+		}
+		break;
+		}
 	}
 	break;
 
@@ -331,7 +407,7 @@ bool Interpreter::Cycle()
 
 	default:
 	{
-		std::cout << "Invalid main opcode reached\n";
+		std::cout << "Invalid main opcode reached: " << std::hex << opCode << std::endl;
 		return false;
 	}
 	break;
