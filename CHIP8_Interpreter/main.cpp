@@ -8,13 +8,16 @@
 #include <vector>
 #include <string>
 #include <time.h> //srand
+#include <map>
 
 #include "Interpreter.h"
+
 //Forward declaration
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 GLuint LoadShaderFromFile(const std::string & filePath, GLenum shaderType);
 GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_path);
 unsigned int RgbaToU32(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+std::map<int, unsigned char>  InitialiseKeyMapping();
 
 // Window dimensions
 const GLuint WIDTH = 1024, HEIGHT = 512;
@@ -145,7 +148,7 @@ int main()
 
 	GLFWwindow* window = OpenGLInit("CHIP8_Interpreter by Julian Declercq");
 
-	Interpreter interpreter = Interpreter();
+	Interpreter interpreter = Interpreter(InitialiseKeyMapping());
 	interpreter.LoadRom("./Resources/PONG");
 
 	// Game loop
@@ -156,7 +159,7 @@ int main()
 		{
 			for (int i = 0; i < 5; i++)
 			{
-				interpreterRunning = interpreter.Cycle();
+				//interpreterRunning = interpreter.Cycle();
 				if (!interpreterRunning)
 					break; //out of for loop
 			}
@@ -185,6 +188,43 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	std::cout << key << std::endl;
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GL_TRUE);
+}
+
+std::map<int, unsigned char>  InitialiseKeyMapping()
+{
+	/* Original Keypad		will map to			OpenGl keycodes
+	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+
+	|1|2|3|C|				|1|2|3|4|			|49|50|51|52|
+	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+
+	|4|5|6|D|				|Q|W|E|R|			|81|87|69|82|
+	+-+-+-+-+       =>		+-+-+-+-+	  =>	+-+-+-+-+
+	|7|8|9|E|				|A|S|D|F|			|65|83|68|70|
+	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+
+	|A|0|B|F|				|Z|X|C|V|			|90|88|67|86|
+	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+		*/
+
+	std::map<int, unsigned char> keypad;
+	keypad.insert(std::make_pair(49, 1));
+	keypad.insert(std::make_pair(50, 2));
+	keypad.insert(std::make_pair(51, 3));
+	keypad.insert(std::make_pair(52, 0xC));
+
+	keypad.insert(std::make_pair(81, 4));
+	keypad.insert(std::make_pair(87, 5));
+	keypad.insert(std::make_pair(69, 6));
+	keypad.insert(std::make_pair(82, 0xD));
+
+	keypad.insert(std::make_pair(65, 7));
+	keypad.insert(std::make_pair(83, 8));
+	keypad.insert(std::make_pair(68, 9));
+	keypad.insert(std::make_pair(70, 0xE));
+
+	keypad.insert(std::make_pair(90, 0xA));
+	keypad.insert(std::make_pair(88, 0));
+	keypad.insert(std::make_pair(67, 0xB));
+	keypad.insert(std::make_pair(86, 0xF));
+
+	return keypad;
 }
 
 GLuint LoadShaderFromFile(const std::string& filePath, GLenum shaderType) {

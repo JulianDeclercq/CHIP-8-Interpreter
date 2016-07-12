@@ -5,7 +5,7 @@
 
 #define DEBUG
 
-Interpreter::Interpreter()
+Interpreter::Interpreter(const std::map<int, unsigned char>& keypad)
 {
 	TempScreen();
 }
@@ -282,7 +282,48 @@ bool Interpreter::Cycle()
 			}
 			else
 			{
+				std::cout << "Invalid opcode 0xFX1. \n";
 			}
+		}
+		break;
+
+		case 0x0020: //FX29 	Sets I to the location of the sprite for the character in VX.
+					 //     	Characters 0-F (in hexadecimal) are represented by a 4x5 font.
+		{
+		}
+		break;
+
+		case 0x0030:
+		{
+			/*FX33 	Stores the binary-coded decimal representation of VX,
+			with the most significant of three digits at the address in I,
+			the middle digit at I plus 1, and the least significant digit at I plus 2.
+			(In other words, take the decimal representation of VX,
+			place the hundreds digit in memory at location in I,
+			the tens digit at location I+1, and the ones digit at location I+2.)*/
+
+			unsigned char dec = m_V[X] >> 8;
+
+			//e.g 261
+			m_Memory[m_IndexRegister] = dec / 100; //261 / 100 = 2
+			m_Memory[m_IndexRegister + 1] = (dec / 10) % 10; //261 / 10 = 26 -> 26 % 10 = 6
+			m_Memory[m_IndexRegister + 2] = dec % 10;
+		}
+		break;
+
+		case 0x0050: //FX55 	Stores V0 to VX (including VX) in memory starting at address I.[4]
+					 //	[4]		On the original interpreter, when the operation is done, I=I+X+1.
+					 //			On current implementations, I is left unchanged.
+		{
+			for (int i = 0; i < X; ++i)
+				m_Memory[m_IndexRegister + i] = m_V[i];
+		}
+		break;
+
+		case 0x0060: //FX65 	Fills V0 to VX (including VX) with values from memory starting at address I.[4]
+		{
+			for (int i = 0; i < X; ++i)
+				m_V[i] = m_Memory[m_IndexRegister + i];
 		}
 		break;
 		}

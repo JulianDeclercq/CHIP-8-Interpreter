@@ -1,11 +1,12 @@
 #pragma once
 
+#include <map>
 #include <string>
 
 class Interpreter
 {
 public:
-	Interpreter();
+	Interpreter(const std::map<int, unsigned char>& keypad);
 	~Interpreter();
 
 	void TempScreen();
