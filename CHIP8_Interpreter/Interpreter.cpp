@@ -5,7 +5,7 @@
 
 #define DEBUG
 
-Interpreter::Interpreter(const std::map<int, unsigned char>& keypad)
+Interpreter::Interpreter()
 {
 	TempScreen();
 }
@@ -28,17 +28,11 @@ unsigned int RgbaToU32(unsigned char r, unsigned char g, unsigned char b, unsign
 
 void Interpreter::TempScreen()
 {
-	//unsigned char grayScale = static_cast<unsigned char>(ScaleTo(i, 2048, 255));
-	//unsigned char grayScaleInverse = 255 - grayScale;
-	//m_PixelOn = RgbaToU32(grayScale, grayScaleInverse, grayScale, 255);
-
-	m_PixelOn = RgbaToU32(0, 120, 0, 0);
-	m_PixelOff = RgbaToU32(120, 0, 0, 0);
+	m_PixelOn = RgbaToU32(1, 1, 1, 0);
+	m_PixelOff = RgbaToU32(254, 254, 254, 0);
 
 	for (int i = 0; i < 2048; ++i)
 		m_Screen[i] = m_PixelOff;
-
-	//m_Screen[770] = m_PixelOn;
 }
 
 void Interpreter::ClearScreen()
@@ -56,9 +50,6 @@ void Interpreter::Initialize()
 
 	for (int i = 0; i < STACK_COUNT; ++i)
 		m_Stack[i] = 0;
-
-	for (int i = 0; i < KEYPAD_COUNT; ++i)
-		m_Keypad[i] = 0;
 
 	/*Loading the fontset to memory.
 	Wikipedia: In modern CHIP-8 implementations,
@@ -106,12 +97,12 @@ void Interpreter::DecreaseTimers() //timers count down at 60hz so might want to
 
 bool Interpreter::Cycle()
 {
-	//Fetch opcode
-	//Fetch memory from the location specified by the program counter
+	// Fetch opcode
+	// Fetch memory from the location specified by the program counter
 	unsigned char o = m_Memory[m_ProgramCounter++]; //increment counter here (1)
 	unsigned char p = m_Memory[m_ProgramCounter++]; //increment counter here (2), 2 times incremented => next instruction
 
-	//Opcode is 2 bytes, memory is 1 byte so add them together
+	// Opcode is 2 bytes, memory is 1 byte so add them together
 	unsigned short opCode;
 	opCode = o << 8 | p;
 
@@ -119,8 +110,8 @@ bool Interpreter::Cycle()
 	std::cout << std::hex << "Opcode: " << opCode << std::endl;
 #endif
 
-	//Decode opcode
-	switch (opCode & 0xF000) //read the first four bits of the current opcode (0xF000 in binary is 1111000000000000)
+	// Decode opcode
+	switch (opCode & 0xF000) // read the first four bits of the current opcode (0xF000 in binary is 1111000000000000)
 	{
 	case 0x0000:
 	{
@@ -129,7 +120,7 @@ bool Interpreter::Cycle()
 		case 0x0000: //00E0 	Clears the screen.
 			ClearScreen();
 			break;
-		case 0x000E: //00EE 	Returns from a subroutine. NOT SURE IF CORRECT
+		case 0x000E: //00EE 	Returns from a subroutine.
 		{
 			m_ProgramCounter = m_Stack[--m_StackPointer];
 		}
@@ -155,7 +146,7 @@ bool Interpreter::Cycle()
 	case 0xC000: //CXNN 	Sets VX to the result of a bitwise and operation on a random number and NN.
 	{
 		unsigned char X = (opCode & 0x0F00) >> 8;
-		unsigned char NN = opCode & 0x00FF;
+		unsigned char NN = (opCode & 0x00FF);
 		unsigned char randomNr = static_cast<unsigned char>(rand());
 		m_V[X] = randomNr & NN;
 	}
@@ -171,7 +162,7 @@ bool Interpreter::Cycle()
 
 		unsigned char X = (opCode & 0x0F00) >> 8;
 		unsigned char Y = (opCode & 0x00F0) >> 4;
-		unsigned char N = opCode & 0x000F;
+		unsigned char N = (opCode & 0x000F);
 
 		unsigned char xCoord = m_V[X];
 		unsigned char yCoord = m_V[Y];
@@ -179,14 +170,6 @@ bool Interpreter::Cycle()
 		for (int i = 0; i < N; ++i)
 		{
 			unsigned char newPxRow = m_Memory[m_IndexRegister + i]; //bit coded
-
-			//unsigned char test1 = (newPxRow >> 7) & 1;
-			//unsigned char test2 = (newPxRow >> 6) & 1;
-			//unsigned char test3 = (newPxRow >> 5) & 1;
-			//unsigned char test4 = (newPxRow >> 4) & 1;
-			//unsigned char test5 = (newPxRow >> 3) & 1;
-			//unsigned char test6 = (newPxRow >> 2) & 1;
-			//unsigned char test7 = (newPxRow >> 1) & 1;
 
 			m_V[0xF] = 0; //reset
 			for (int px = 0; px < 8; ++px)
@@ -225,14 +208,17 @@ bool Interpreter::Cycle()
 
 	case 0xE000:
 	{
+		unsigned char X = (opCode & 0x0F00) >> 8;
 		switch (opCode & 0x000F)
 		{
 		case 0x000E: //EX9E 	Skips the next instruction if the key stored in VX is pressed.
-			std::cout << "Not yet implemented opcode with key pressing\n";
+			if (((m_Keypad >> m_V[X]) & 1) != 0)
+				m_ProgramCounter += 2;
 			break;
 
 		case 0x0001: //EXA1 	Skips the next instruction if the key stored in VX isn't pressed.
-			std::cout << "Not yet implemented opcode with key pressing\n";
+			if (((m_Keypad >> m_V[X]) & 1) == 0)
+				m_ProgramCounter += 2;
 			break;
 		}
 	}
@@ -247,13 +233,29 @@ bool Interpreter::Cycle()
 		case 0x0000:
 		{
 			//I prefer using if and else if over switch here for readability
-			if (opCode & 0x000F == 0x0007) //FX07 	Sets VX to the value of the delay timer.
+			if ((opCode & 0x000F) == 0x0007) //FX07 	Sets VX to the value of the delay timer.
 			{
 				m_V[X] = m_DelayTimer;
 			}
-			else if (opCode & 0x000F == 0x000A) //FX0A 	A key press is awaited, and then stored in VX.
+			else if ((opCode & 0x000F) == 0x000A) //FX0A 	A key press is awaited, and then stored in VX.
 			{
-				std::cout << "Not yet implemented opcode with key pressing\n";
+				// If no keys are pressed, decrease the program counter with 2, leading to this opCode again. This simulates awaiting
+				if (m_Keypad == 0)
+				{
+					m_ProgramCounter -= 2;
+				}
+				else // if a key is pressed
+				{
+					// find out what key is pressed
+					for (int i = 0; i < 0xF; ++i)
+					{
+						if (((m_Keypad >> i) & 1) == 1) // if this key is pressed
+						{
+							m_V[X] = static_cast<unsigned char>(i); // store its name in VX
+							break;
+						}
+					}
+				}
 			}
 			else
 			{
@@ -264,15 +266,15 @@ bool Interpreter::Cycle()
 
 		case 0x0010:
 		{
-			if (opCode & 0x000F == 0x0005) //FX15 	Sets the delay timer to VX.
+			if ((opCode & 0x000F) == 0x0005) //FX15 	Sets the delay timer to VX.
 			{
 				m_DelayTimer = m_V[X];
 			}
-			else if (opCode & 0x000F == 0x0008) //FX18 	Sets the sound timer to VX.
+			else if ((opCode & 0x000F) == 0x0008) //FX18 	Sets the sound timer to VX.
 			{
 				m_SoundTimer = m_V[X];
 			}
-			else if (opCode & 0x000F == 0x000E) //FX1E  Adds VX to I.
+			else if ((opCode & 0x000F) == 0x000E) //FX1E  Adds VX to I.
 			{
 				m_IndexRegister += m_V[X];
 
@@ -282,7 +284,7 @@ bool Interpreter::Cycle()
 			}
 			else
 			{
-				std::cout << "Invalid opcode 0xFX1. \n";
+				std::cout << "Invalid opcode 0xFX1. Opcode: " << std::hex << opCode << std::endl;
 			}
 		}
 		break;
@@ -317,6 +319,8 @@ bool Interpreter::Cycle()
 		{
 			for (int i = 0; i < X; ++i)
 				m_Memory[m_IndexRegister + i] = m_V[i];
+
+			m_IndexRegister += X + 1;
 		}
 		break;
 
@@ -324,6 +328,8 @@ bool Interpreter::Cycle()
 		{
 			for (int i = 0; i < X; ++i)
 				m_V[i] = m_Memory[m_IndexRegister + i];
+
+			m_IndexRegister += X + 1;
 		}
 		break;
 		}
@@ -332,20 +338,21 @@ bool Interpreter::Cycle()
 
 	case 0x1000: //1NNN 	Jumps to address NNN.
 	{
+		m_ProgramCounter = opCode & 0x0FFF;
 	}
 	break;
 	case 0x2000: //2NNN 	Calls subroutine at NNN.
 	{
 		m_Stack[m_StackPointer] = m_ProgramCounter; //store current address of the pc
 		++m_StackPointer;
-		m_ProgramCounter = opCode & 0x0FFF;
+		m_ProgramCounter = (opCode & 0x0FFF);
 		//don't increment pc by 2 because we are calling a subroutine at a specific address
 	}
 	break;
 	case 0x3000: //3XNN 	Skips the next instruction if VX equals NN.
 	{
 		unsigned char X = (opCode & 0x0F00) >> 8;
-		unsigned char NN = opCode & 0x00FF;
+		unsigned char NN = (opCode & 0x00FF);
 		if (m_V[X] == NN) //>> 8 because only first 4 bits were read with main switch
 			m_ProgramCounter += 2;
 	}
@@ -353,7 +360,7 @@ bool Interpreter::Cycle()
 	case 0x4000: //4XNN 	Skips the next instruction if VX doesn't equal NN.
 	{
 		unsigned char X = (opCode & 0x0F00) >> 8;
-		unsigned char NN = opCode & 0x00FF;
+		unsigned char NN = (opCode & 0x00FF);
 		if (m_V[X] != NN)
 			m_ProgramCounter += 2;
 	}
@@ -377,7 +384,7 @@ bool Interpreter::Cycle()
 	case 0x7000: //7XNN 	Adds NN to VX.
 	{
 		unsigned char X = (opCode & 0x0F00) >> 8;
-		unsigned char NN = opCode & 0x00FF;
+		unsigned char NN = (opCode & 0x00FF);
 		m_V[X] += NN;
 	}
 	break;

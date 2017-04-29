@@ -15,9 +15,8 @@
 //Forward declaration
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 GLuint LoadShaderFromFile(const std::string & filePath, GLenum shaderType);
-GLuint LoadShaders(const char * vertex_file_path, const char * fragment_file_path);
 unsigned int RgbaToU32(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
-std::map<int, unsigned char>  InitialiseKeyMapping();
+void InitialiseKeyMapping(std::map<int, unsigned short>& keyMap);
 
 // Window dimensions
 const GLuint WIDTH = 1024, HEIGHT = 512;
@@ -141,6 +140,8 @@ void Draw(GLFWwindow* window, Interpreter& interpreter)
 	glfwSwapBuffers(window);
 }
 
+std::map<int, unsigned short> m_KeyMap = std::map<int, unsigned short>();
+Interpreter* m_Interpreter = nullptr;
 int main()
 {
 	srand(static_cast<unsigned int>(time(0))); //seed rand
@@ -148,28 +149,29 @@ int main()
 
 	GLFWwindow* window = OpenGLInit("CHIP8_Interpreter by Julian Declercq");
 
-	Interpreter interpreter = Interpreter(InitialiseKeyMapping());
-	interpreter.LoadRom("./Resources/PONG");
+	InitialiseKeyMapping(m_KeyMap);
+
+	m_Interpreter = new Interpreter();
+	m_Interpreter->LoadRom("./Resources/PONG");
 
 	// Game loop
-	bool interpreterRunning = true;
 	while (!glfwWindowShouldClose(window))
 	{
-		if (interpreterRunning)
+		for (int i = 0; i < 5; i++)
 		{
-			for (int i = 0; i < 5; i++)
-			{
-				//interpreterRunning = interpreter.Cycle();
-				if (!interpreterRunning)
-					break; //out of for loop
-			}
+			// Check if any events have been activated (key pressed, mouse moved etc.) and call corresponding response functions
+			// This sets the interpreters key states
+			glfwPollEvents();
+
+			if (!m_Interpreter->Cycle())
+				break;
+
+			// Every cycle you should check the key input state and store it in key[].
+			// First clear the previous cycle's key information
+			m_Interpreter->m_Keypad = 0;
 		}
 
-		Draw(window, interpreter);
-		// Check if any events have been activated (key pressed, mouse moved etc.) and call corresponding response functions
-		glfwPollEvents();
-
-		//interpreter.SetKeys();
+		Draw(window, *m_Interpreter);
 	}
 
 	// Terminates GLFW, clearing any resources allocated by GLFW.
@@ -185,12 +187,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	UNREFERENCED_PARAMETER(mode);
 	UNREFERENCED_PARAMETER(scancode);
 
-	std::cout << key << std::endl;
+	std::cout << "Key pressed: " << key << std::endl;
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GL_TRUE);
+
+	// If a key is pressed, let the interpreter know
+	if (action == GLFW_PRESS)
+		m_Interpreter->m_Keypad |= 1 << m_KeyMap[key];
 }
 
-std::map<int, unsigned char>  InitialiseKeyMapping()
+void InitialiseKeyMapping(std::map<int, unsigned short>& keyMap)
 {
 	/* Original Keypad		will map to			OpenGl keycodes
 	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+
@@ -203,28 +209,13 @@ std::map<int, unsigned char>  InitialiseKeyMapping()
 	|A|0|B|F|				|Z|X|C|V|			|90|88|67|86|
 	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+		*/
 
-	std::map<int, unsigned char> keypad;
-	keypad.insert(std::make_pair(49, 1));
-	keypad.insert(std::make_pair(50, 2));
-	keypad.insert(std::make_pair(51, 3));
-	keypad.insert(std::make_pair(52, 0xC));
-
-	keypad.insert(std::make_pair(81, 4));
-	keypad.insert(std::make_pair(87, 5));
-	keypad.insert(std::make_pair(69, 6));
-	keypad.insert(std::make_pair(82, 0xD));
-
-	keypad.insert(std::make_pair(65, 7));
-	keypad.insert(std::make_pair(83, 8));
-	keypad.insert(std::make_pair(68, 9));
-	keypad.insert(std::make_pair(70, 0xE));
-
-	keypad.insert(std::make_pair(90, 0xA));
-	keypad.insert(std::make_pair(88, 0));
-	keypad.insert(std::make_pair(67, 0xB));
-	keypad.insert(std::make_pair(86, 0xF));
-
-	return keypad;
+	keyMap =
+	{
+		{ 49, 1 }, { 50, 2 }, { 51, 3 }, { 52, 0xC },
+		{ 81, 4 }, { 87, 5 }, { 69, 6 }, { 82, 0xD },
+		{ 65, 7 }, { 83, 8 }, { 68, 9 }, { 70, 0xE },
+		{ 90, 0xA }, { 88, 0 }, { 67, 0xB }, { 86, 0xF }
+	};
 }
 
 GLuint LoadShaderFromFile(const std::string& filePath, GLenum shaderType) {

@@ -6,7 +6,7 @@
 class Interpreter
 {
 public:
-	Interpreter(const std::map<int, unsigned char>& keypad);
+	Interpreter();
 	~Interpreter();
 
 	void TempScreen();
@@ -47,10 +47,6 @@ private:
 	unsigned short m_Stack[STACK_COUNT];
 	unsigned short m_StackPointer = 0;
 
-	//hex based keypad
-	static const int KEYPAD_COUNT = 16;
-	unsigned char m_Keypad[KEYPAD_COUNT];
-
 	//Fontset
 	static const int FONTSET_SIZE = 80;
 	const unsigned char m_Fontset[FONTSET_SIZE] =
@@ -76,6 +72,10 @@ private:
 	//Current values for on and off (instead of boring black and white ;) )
 	unsigned int m_PixelOff = 0;
 	unsigned int m_PixelOn = 0;
+
+public:
+	//unsigned char m_Keypad[KEYPAD_COUNT];
+	unsigned short m_Keypad; //work with one 16 bit integer instead of a 1 bit char array of 16, easier to check if none have been pressed
 
 private:
 	void DecreaseTimers();
