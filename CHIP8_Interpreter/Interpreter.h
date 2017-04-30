@@ -9,7 +9,6 @@ public:
 	Interpreter();
 	~Interpreter();
 
-	void TempScreen();
 	void LoadRom(const std::string& path);
 
 	void Initialize();
@@ -76,6 +75,7 @@ private:
 public:
 	//unsigned char m_Keypad[KEYPAD_COUNT];
 	unsigned short m_Keypad; //work with one 16 bit integer instead of a 1 bit char array of 16, easier to check if none have been pressed
+	bool m_DrawFlag = false;
 
 private:
 	void DecreaseTimers();

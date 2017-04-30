@@ -150,36 +150,35 @@ int main()
 
 	GLFWwindow* window = OpenGLInit("CHIP8_Interpreter by Julian Declercq");
 
-	InitialiseKeyMapping(m_KeyMap);
-
 	m_Interpreter = new Interpreter();
-	m_Interpreter->LoadRom("./Resources/PONG");
+	m_Interpreter->Initialize();
+	m_Interpreter->LoadRom("./Resources/TETRIS");
+
+	InitialiseKeyMapping(m_KeyMap);
 
 	// Game loop
 	while (!glfwWindowShouldClose(window))
 	{
-		for (int i = 0; i < 5; i++)
-		{
-			// Every cycle you should check the key input state and store it in the interpreters keypad.
-			SetInput(window);
-
-			if (!m_Interpreter->Cycle())
-				break;
-
-			// First clear the previous cycle's key information
-			m_Interpreter->m_Keypad = 0;
-		}
-
 		// Check if any events have been activated (key pressed, mouse moved etc.) and call corresponding response functions
 		glfwPollEvents();
 
-		Draw(window, *m_Interpreter);
+		// Every cycle you should check the key input state and store it in the interpreters keypad.
+		SetInput(window);
+
+		// Cycle the interpreter
+		if (!m_Interpreter->Cycle())
+			break;
+
+		if (m_Interpreter->m_DrawFlag)
+			Draw(window, *m_Interpreter);
+
+		// First clear the previous cycle's key information
+		m_Interpreter->m_Keypad = 0;
 	}
 
 	// Terminates GLFW, clearing any resources allocated by GLFW.
 	glfwTerminate();
 
-	std::cin.get();
 	return 0;
 }
 
@@ -196,16 +195,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 void InitialiseKeyMapping(std::map<int, unsigned short>& keyMap)
 {
-	/* Original Keypad		will map to			OpenGl keycodes
-	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+
-	|1|2|3|C|				|1|2|3|4|			|49|50|51|52|
-	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+
-	|4|5|6|D|				|Q|W|E|R|			|81|87|69|82|
-	+-+-+-+-+       =>		+-+-+-+-+	  =>	+-+-+-+-+
-	|7|8|9|E|				|A|S|D|F|			|65|83|68|70|
-	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+
-	|A|0|B|F|				|Z|X|C|V|			|90|88|67|86|
-	+-+-+-+-+				+-+-+-+-+			+-+-+-+-+		*/
+	/* Original Keypad		will map to
+	+-+-+-+-+				+-+-+-+-+
+	|1|2|3|C|				|1|2|3|4|
+	+-+-+-+-+				+-+-+-+-+
+	|4|5|6|D|				|Q|W|E|R|
+	+-+-+-+-+       =>		+-+-+-+-+
+	|7|8|9|E|				|A|S|D|F|
+	+-+-+-+-+				+-+-+-+-+
+	|A|0|B|F|				|Z|X|C|V|
+	+-+-+-+-+				+-+-+-+-+	*/
 
 	keyMap =
 	{
