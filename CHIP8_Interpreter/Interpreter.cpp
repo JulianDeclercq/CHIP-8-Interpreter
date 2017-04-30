@@ -32,6 +32,8 @@ void Interpreter::ClearScreen()
 
 	for (int i = 0; i < 2048; ++i)
 		m_Screen[i] = m_PixelOff;
+
+	m_DrawFlag = true;
 }
 
 void Interpreter::Initialize()
@@ -411,7 +413,7 @@ bool Interpreter::Cycle()
 					 //	[4]		On the original interpreter, when the operation is done, I=I+X+1.
 					 //			On current implementations, I is left unchanged.
 		{
-			for (int i = 0; i < X; ++i)
+			for (int i = 0; i <= X; ++i)
 				m_Memory[m_IndexRegister + i] = m_V[i];
 
 			m_IndexRegister += X + 1;
@@ -420,7 +422,7 @@ bool Interpreter::Cycle()
 
 		case 0x0060: //FX65 	Fills V0 to VX (including VX) with values from memory starting at address I.[4]
 		{
-			for (int i = 0; i < X; ++i)
+			for (int i = 0; i <= X; ++i)
 				m_V[i] = m_Memory[m_IndexRegister + i];
 
 			m_IndexRegister += X + 1;

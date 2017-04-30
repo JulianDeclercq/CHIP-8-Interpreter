@@ -152,7 +152,7 @@ int main()
 
 	m_Interpreter = new Interpreter();
 	m_Interpreter->Initialize();
-	m_Interpreter->LoadRom("./Resources/TETRIS");
+	m_Interpreter->LoadRom("./Resources/15PUZZLE");
 
 	InitialiseKeyMapping(m_KeyMap);
 
