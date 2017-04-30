@@ -17,6 +17,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 GLuint LoadShaderFromFile(const std::string & filePath, GLenum shaderType);
 unsigned int RgbaToU32(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 void InitialiseKeyMapping(std::map<int, unsigned short>& keyMap);
+void SetInput(GLFWwindow* window);
 
 // Window dimensions
 const GLuint WIDTH = 1024, HEIGHT = 512;
@@ -159,17 +160,18 @@ int main()
 	{
 		for (int i = 0; i < 5; i++)
 		{
-			// Check if any events have been activated (key pressed, mouse moved etc.) and call corresponding response functions
-			// This sets the interpreters key states
-			glfwPollEvents();
+			// Every cycle you should check the key input state and store it in the interpreters keypad.
+			SetInput(window);
 
 			if (!m_Interpreter->Cycle())
 				break;
 
-			// Every cycle you should check the key input state and store it in key[].
 			// First clear the previous cycle's key information
 			m_Interpreter->m_Keypad = 0;
 		}
+
+		// Check if any events have been activated (key pressed, mouse moved etc.) and call corresponding response functions
+		glfwPollEvents();
 
 		Draw(window, *m_Interpreter);
 	}
@@ -190,10 +192,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	std::cout << "Key pressed: " << key << std::endl;
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GL_TRUE);
-
-	// If a key is pressed, let the interpreter know
-	if (action == GLFW_PRESS)
-		m_Interpreter->m_Keypad |= 1 << m_KeyMap[key];
 }
 
 void InitialiseKeyMapping(std::map<int, unsigned short>& keyMap)
@@ -211,11 +209,21 @@ void InitialiseKeyMapping(std::map<int, unsigned short>& keyMap)
 
 	keyMap =
 	{
-		{ 49, 1 }, { 50, 2 }, { 51, 3 }, { 52, 0xC },
-		{ 81, 4 }, { 87, 5 }, { 69, 6 }, { 82, 0xD },
-		{ 65, 7 }, { 83, 8 }, { 68, 9 }, { 70, 0xE },
-		{ 90, 0xA }, { 88, 0 }, { 67, 0xB }, { 86, 0xF }
+		{ GLFW_KEY_1, 1 }, { GLFW_KEY_2, 2 }, { GLFW_KEY_3, 3 }, { GLFW_KEY_4, 0xC },
+		{ GLFW_KEY_Q, 4 }, { GLFW_KEY_W, 5 }, { GLFW_KEY_E, 6 }, { GLFW_KEY_R, 0xD },
+		{ GLFW_KEY_A, 7 }, { GLFW_KEY_S, 8 }, { GLFW_KEY_D, 9 }, { GLFW_KEY_F, 0xE },
+		{ GLFW_KEY_Z, 0xA }, { GLFW_KEY_X, 0 }, { GLFW_KEY_C, 0xB }, { GLFW_KEY_V, 0xF }
 	};
+}
+
+void SetInput(GLFWwindow* window)
+{
+	// Check state for all keybinds and update the interpreter
+	for (const std::pair<int, unsigned short>& keybind : m_KeyMap)
+	{
+		if (glfwGetKey(window, keybind.first) == GLFW_PRESS)
+			m_Interpreter->m_Keypad |= 1 << keybind.second;
+	}
 }
 
 GLuint LoadShaderFromFile(const std::string& filePath, GLenum shaderType) {
